@@ -1,25 +1,25 @@
+import asyncio
 import json
 import random
 from typing import List, Tuple, Optional
 
 from discord import Member, Message, VoiceState, VoiceChannel, TextChannel
 from discord.ext import commands
+from discord.ext.tasks import loop
 from discord.ext.commands import Context
 
+from configs import CHECK_ON_EMPTY_VOICE_CHANNEL, DRY_SHEET_RUN, REFRESH_GOOGLE_API_TOKEN_TIME
 from errors import handle_errors
 from functions import find, strdate2excel, strdate
 from g0 import Google
 from scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
 from sheet import Sheet
 
-DRY_SHEET_RUN = False
-CHECK_ON_EMPTY_VOICE_CHANNEL = True
-
 
 credentials = Google.auth("credentials.json", "token.json")
 
 
-bot = commands.Bot(command_prefix='аи-')
+bot = commands.Bot(command_prefix='ai-')
 
 
 async def scoreboard_message_lookup(channel: TextChannel) -> Optional[Message]:
@@ -49,6 +49,11 @@ async def get_voice_desc(ctx: Context) -> Tuple[VoiceChannel, List[Member]]:
     assert not CHECK_ON_EMPTY_VOICE_CHANNEL or len(members) != 0, \
         f"You are the only one in the voice channel '{voice_channel.name}' or nobody in channel, please reconnect"
     return voice_channel, members
+
+
+@loop(seconds=REFRESH_GOOGLE_API_TOKEN_TIME)
+async def refresh_token():
+    print("I want to refresh token for g00gle api but don't know how")
 
 
 @bot.event
@@ -129,6 +134,8 @@ def discord_get_token(token_path: str) -> str:
 
 def main():
     token = discord_get_token("discord.json")
+    refresh_token.before_loop(bot.wait_until_ready())
+    refresh_token.start()
     bot.run(token)
 
 
