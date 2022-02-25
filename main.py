@@ -13,7 +13,7 @@ from discord.ext.commands import Context
 
 from configs import *
 from wrapper import playgame
-from functions import find, strdate2excel, strdate
+from functions import find, strdate2excel, strdate, first
 from g0 import Google
 from scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
 from sheet import Sheet
@@ -60,6 +60,13 @@ async def get_voice_desc(ctx: Context) -> Tuple[VoiceChannel, List[Member]]:
     return voice_channel, members
 
 
+def get_text_channel(ctx, channel_id: Optional[int] = None) -> TextChannel:
+    if channel_id is not None:
+        return bot.get_channel(channel_id)
+    else:
+        return ctx.channel
+
+
 @loop(seconds=REFRESH_GOOGLE_API_TOKEN_TIME)
 @playgame(bot, activity=discord.Game("Refresh tokens"))
 async def refresh_token():
@@ -81,27 +88,32 @@ async def on_ready():
 )
 @commands.has_role("root")
 @playgame(bot, discord.Game(name="Выбираю, кто соберет таймкоды"))
-async def choose_timecoder(ctx: Context, score: int = 2):
+async def choose_timecoder(ctx: Context, score: int = 2, channel_id: Optional[int] = None):
+    text_channel = get_text_channel(ctx, channel_id)
+
     voice_channel, members = await get_voice_desc(ctx)
 
-    sheet, _ = await scoreboard_sheet_load(ctx.channel)
+    sheet, pin = await scoreboard_sheet_load(text_channel)
 
     acquired_timecoders = sheet.get_timecoders()
     assert acquired_timecoders, f"Nobody want to be timecoder"
 
     present_users = [it.display_name for it in members]
 
-    present_timecoders = list(set(acquired_timecoders) & set(present_users))
-    assert present_timecoders, f"All possible timecoders are absent :("
+    present_timecoders_names = list(set(acquired_timecoders) & set(present_users))
+    assert present_timecoders_names, f"All possible timecoders are absent :("
+
+    present_timecoders: List[Member] = \
+        [first(lambda it: it.display_name == name, members) for name in present_timecoders_names]
 
     timecoder = random.choice(present_timecoders)
-    member = next(it for it in members if it.display_name == timecoder)
 
     date = strdate(ctx.message.created_at)
 
-    await ctx.reply(f"Исскуственный интелект назначил тебя {member.mention} отвественным за таймкоды **{date}**, "
+    await ctx.reply(f"Исскуственный интелект назначил {timecoder.mention} отвественным за таймкоды **{date}**, "
                     f"по {voice_channel.mention}. Ты получишь +{score} баллов, если успешно справишься "
-                    f"с задачей и -1 в противном случае")
+                    f"с задачей и -1 в противном случае. "
+                    f"Я выбирал между {', '.join(it.mention for it in present_timecoders)} отсюда {pin.jump_url}")
 
 
 @bot.command(
@@ -111,11 +123,8 @@ async def choose_timecoder(ctx: Context, score: int = 2):
 @commands.has_role("root")
 @playgame(bot, discord.Game(name="Отмечаю, кто сидит в голосовом канале..."))
 async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1, channel_id: Optional[int] = None):
-    if channel_id is not None:
-        text_channel = bot.get_channel(channel_id)
-    else:
-        text_channel = ctx.channel
-
+    text_channel = get_text_channel(ctx, channel_id)
+    
     voice_channel, members = await get_voice_desc(ctx)
 
     assert score > 0, f"This is unfair to add {score}"
