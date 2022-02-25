@@ -19,7 +19,7 @@ CHECK_ON_EMPTY_VOICE_CHANNEL = True
 credentials = Google.auth("credentials.json", "token.json")
 
 
-bot = commands.Bot(command_prefix='!')
+bot = commands.Bot(command_prefix='аи-')
 
 
 async def scoreboard_message_lookup(channel: TextChannel) -> Optional[Message]:
@@ -34,7 +34,7 @@ async def scoreboard_sheet_load(channel: TextChannel) -> Sheet:
     scoreboard = ScoreboardMessage.parse(message)
     document_id = Google.get_sheet_id(scoreboard.url)
     # sheet.fix_flags([TIME_CODES_COLUMN_INDEX])  # not yet needed cus of render option
-    return Google(credentials).load_sheet(document_id, scoreboard.all_columns)
+    return Google(credentials).load_sheet(document_id, scoreboard.cells)
 
 
 async def get_voice_channel(ctx: Context) -> VoiceChannel:
@@ -56,7 +56,10 @@ async def on_ready():
     print(f'{bot.user.name} has connected to Discord!')
 
 
-@bot.command(name='choose_timecoder', help='Выбирает пользователя случайным образом у кого выставлен <V> в таймкодах')
+@bot.command(
+    name="выбери-кто-соберет-таймкоды",
+    help="Выбирает пользователя случайным образом у кого выставлен <V> в таймкодах"
+)
 @commands.has_role("root")
 @handle_errors(bot)
 async def choose_timecoder(ctx: Context, score: int = 2):
@@ -82,7 +85,10 @@ async def choose_timecoder(ctx: Context, score: int = 2):
                     f"с задачей и -1 в противном случае")
 
 
-@bot.command(name='update_score', help='Обновляет score пользователей, в голосовом канале')
+@bot.command(
+    name="отметь-кто-тут",
+    help="Обновляет score пользователей, в голосовом канале"
+)
 @commands.has_role("root")
 @handle_errors(bot)
 async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1):

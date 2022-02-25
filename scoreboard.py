@@ -13,14 +13,14 @@ SCOREBOARD_ITEM_SEP = ":"
 
 
 SCOREBOARD_URL_NAME = "Ссылка"
-SCOREBOARD_ALL_COLUMNS_NAME = "Все столбцы"
-SCOREBOARD_SCORE_COLUMNS_NAME = "Столбцы с баллами"
+SCOREBOARD_CELLS_NAME = "Столбцы"
 SCOREBOARD_YEAR_NAME = "Год"
 
 
 @dataclass
 class ScoreboardMessage(object):
     url: str
+    cells: str
     year: int
 
     @staticmethod
@@ -43,9 +43,11 @@ class ScoreboardMessage(object):
             tokens[name] = value.strip()
 
         url = tokens.get(SCOREBOARD_URL_NAME, None)
+        cells = tokens.get(SCOREBOARD_CELLS_NAME, None)
         year_str = tokens.get(SCOREBOARD_YEAR_NAME, None)
 
         assert url is not None, f"{SCOREBOARD_URL_NAME} not found {attachments(message.jump_url)}"
+        assert cells is not None, f"{SCOREBOARD_CELLS_NAME} not found {attachments(message.jump_url)}"
         assert year_str is not None, f"{SCOREBOARD_YEAR_NAME} not found {attachments(message.jump_url)}"
 
         year = int_or_else(year_str)
@@ -54,7 +56,7 @@ class ScoreboardMessage(object):
 
         assert validators.url(url), f"Invalid URL format: {url}"
 
-        return ScoreboardMessage(url, year)
+        return ScoreboardMessage(url, cells, year)
 
     @classmethod
     def parse_or_none(cls, message: Message) -> Optional["ScoreboardMessage"]:
