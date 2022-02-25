@@ -1,7 +1,8 @@
+import asyncio
 import functools
 import json
 import random
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import discord
 from discord.ext.commands import Context, Bot
@@ -22,6 +23,9 @@ ERROR_PHRASES = [
 ]
 
 
+working_lock = asyncio.Lock()
+
+
 def attachments(*args):
     data = json.dumps(args)
     return f"{ATTACHMENT_SIGNATURE}{data}"
@@ -36,27 +40,37 @@ def _parse_assert(string: str) -> Tuple[str, List[str]]:
         return string, list()
 
 
-def handle_errors(bot: Bot):
+def playgame(bot: Bot, activity: discord.Status):
 
     def decorator(function):
 
         @functools.wraps(function)
-        async def wrapped(ctx: Context, *args, **kwargs):
-            if ctx.author == bot.user:
+        async def wrapped(*args, **kwargs):
+            await bot.wait_until_ready()
+
+            # if bot command wrapped
+            ctx: Optional[Context] = args[0] if len(args) > 0 and type(args[0]) == Context else None
+
+            if ctx is not None and ctx.author == bot.user:
                 return None
 
-            try:
-                await function(ctx, *args, **kwargs)
-            except Exception as error:
-                phrase = random.choice(ERROR_PHRASES)
-                message, attaches = _parse_assert(str(error))
-                string = '\n'.join(attaches)
-                reply = f"{phrase} ```{message}``` {string}"
+            async with working_lock:
 
-                await ctx.reply(reply)
-                raise
-            finally:
-                await bot.change_presence(status=discord.Status.idle, activity=None)
+                await bot.change_presence(activity=activity)
+
+                try:
+                    await function(*args, **kwargs)
+                except Exception as error:
+                    if ctx is not None:
+                        phrase = random.choice(ERROR_PHRASES)
+                        message, attaches = _parse_assert(str(error))
+                        string = '\n'.join(attaches)
+                        reply = f"{phrase} ```{message}``` {string}"
+                        await ctx.reply(reply)
+
+                    raise
+                finally:
+                    await bot.change_presence(activity=None)
 
         return wrapped
 

@@ -1,4 +1,4 @@
-from errors import attachments
+from wrapper import attachments
 from dataclasses import dataclass
 from typing import Optional
 

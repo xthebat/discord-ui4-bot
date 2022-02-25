@@ -22,10 +22,11 @@ def is_cell_empty(data) -> bool:
 
 class Sheet(object):
 
-    def __init__(self, document_id: str, cells: str, data: dict):
+    def __init__(self, document_id: str, cells: str, data: dict, url: Optional[str] = None):
         self.document_id = document_id
         self.data = data
         self.cells = cells
+        self.url = url
 
         data["range"] = cells
 

@@ -12,14 +12,14 @@ from discord.ext.tasks import loop
 from discord.ext.commands import Context
 
 from configs import *
-from errors import handle_errors
+from wrapper import playgame
 from functions import find, strdate2excel, strdate
 from g0 import Google
 from scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
 from sheet import Sheet
 
 
-bot = commands.Bot(command_prefix='ai-', status=discord.Status.dnd, activity=None)
+bot = commands.Bot(command_prefix='ai-', status=discord.Status.online, activity=None)
 
 
 lock_google = asyncio.Lock()
@@ -36,14 +36,14 @@ async def scoreboard_message_lookup(channel: TextChannel) -> Optional[Message]:
     return find(lambda it: ScoreboardMessage.is_resemble(it.clean_content), sorted_pins)
 
 
-async def scoreboard_sheet_load(channel: TextChannel) -> Sheet:
+async def scoreboard_sheet_load(channel: TextChannel) -> Tuple[Sheet, Message]:
     message = await scoreboard_message_lookup(channel)
     assert message is not None, f"Pinned message with scoreboard signature '{SCOREBOARD_SIGNATURE}' not found"
     scoreboard = ScoreboardMessage.parse(message)
     document_id = Google.get_sheet_id(scoreboard.url)
     # sheet.fix_flags([TIME_CODES_COLUMN_INDEX])  # not yet needed cus of render option
     credentials = await google_credentials()
-    return Google(credentials).load_sheet(document_id, scoreboard.cells)
+    return Google(credentials).load_sheet(document_id, scoreboard.cells, scoreboard.url), message
 
 
 async def get_voice_channel(ctx: Context) -> VoiceChannel:
@@ -61,15 +61,13 @@ async def get_voice_desc(ctx: Context) -> Tuple[VoiceChannel, List[Member]]:
 
 
 @loop(seconds=REFRESH_GOOGLE_API_TOKEN_TIME)
+@playgame(bot, activity=discord.Game("Refresh tokens"))
 async def refresh_token():
-    await bot.wait_until_ready()
+    await asyncio.sleep(1)
+
     print(f"Refresh google credentials token {datetime.now()}")
 
-    await bot.change_presence(activity=discord.Game(name="Refresh tokens"))
-
     await google_credentials()  # I hope this will work
-
-    await bot.change_presence(activity=None)
 
 
 @bot.event
@@ -82,15 +80,11 @@ async def on_ready():
     help="Выбирает пользователя случайным образом у кого выставлен <V> в таймкодах"
 )
 @commands.has_role("root")
-@handle_errors(bot)
+@playgame(bot, discord.Game(name="Выбираю, кто соберет таймкоды"))
 async def choose_timecoder(ctx: Context, score: int = 2):
-    await bot.change_presence(
-        status=discord.Status.online,
-        activity=discord.Game(name="Выбираю, кто соберет таймкоды"))
-
     voice_channel, members = await get_voice_desc(ctx)
 
-    sheet = await scoreboard_sheet_load(ctx.channel)
+    sheet, _ = await scoreboard_sheet_load(ctx.channel)
 
     acquired_timecoders = sheet.get_timecoders()
     assert acquired_timecoders, f"Nobody want to be timecoder"
@@ -115,17 +109,18 @@ async def choose_timecoder(ctx: Context, score: int = 2):
     help="Обновляет score пользователей, в голосовом канале"
 )
 @commands.has_role("root")
-@handle_errors(bot)
-async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1):
-    await bot.change_presence(
-        status=discord.Status.online,
-        activity=discord.Game(name="Отмечаю, кто сидит в голосовом канале..."))
+@playgame(bot, discord.Game(name="Отмечаю, кто сидит в голосовом канале..."))
+async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1, channel_id: Optional[int] = None):
+    if channel_id is not None:
+        text_channel = bot.get_channel(channel_id)
+    else:
+        text_channel = ctx.channel
 
     voice_channel, members = await get_voice_desc(ctx)
 
     assert score > 0, f"This is unfair to add {score}"
 
-    sheet = await scoreboard_sheet_load(ctx.channel)
+    sheet, pin = await scoreboard_sheet_load(text_channel)
 
     date = date or strdate(ctx.message.created_at)
     excel_date = strdate2excel(date)
@@ -146,7 +141,8 @@ async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1)
         credentials = await google_credentials()
         Google(credentials).store_sheet(sheet)
 
-    message = f"Обновленный рейтинг за {date} по данным из {voice_channel.mention}:\n" + "\n".join(lines)
+    message = f"Обновленный рейтинг за {date} по данным из {voice_channel.mention}:\n" + \
+              "\n".join(lines) + f"\nScoreboard взял отсюда: {pin.jump_url}"
 
     await ctx.reply(message)
 

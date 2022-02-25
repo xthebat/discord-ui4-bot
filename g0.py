@@ -60,11 +60,11 @@ class Google(object):
         self.service = build('sheets', 'v4', credentials=credentials)
         self.sheets = self.service.spreadsheets()
 
-    def load_sheet(self, document_id: str, cells: str) -> Sheet:
+    def load_sheet(self, document_id: str, cells: str, url: Optional[str] = None) -> Sheet:
         data = self.sheets.values()\
             .get(spreadsheetId=document_id, range=cells, valueRenderOption="FORMULA")\
             .execute()
-        return Sheet(document_id, cells, data)
+        return Sheet(document_id, cells, data, url)
 
     def store_sheet(self, sheet: Sheet, cells: Optional[str] = None):
         if cells is not None:
