@@ -3,12 +3,15 @@ import json
 import random
 from typing import List, Tuple, Optional
 
+from datetime import datetime
+
+import discord
 from discord import Member, Message, VoiceState, VoiceChannel, TextChannel
 from discord.ext import commands
 from discord.ext.tasks import loop
 from discord.ext.commands import Context
 
-from configs import CHECK_ON_EMPTY_VOICE_CHANNEL, DRY_SHEET_RUN, REFRESH_GOOGLE_API_TOKEN_TIME
+from configs import *
 from errors import handle_errors
 from functions import find, strdate2excel, strdate
 from g0 import Google
@@ -16,10 +19,15 @@ from scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
 from sheet import Sheet
 
 
-credentials = Google.auth("credentials.json", "token.json")
+bot = commands.Bot(command_prefix='ai-', status=discord.Status.dnd, activity=None)
 
 
-bot = commands.Bot(command_prefix='ai-')
+lock_google = asyncio.Lock()
+
+
+async def google_credentials():
+    async with lock_google:
+        return Google.auth(CREDENTIALS_FILEPATH, GOOGLE_TOKEN_FILEPATH)
 
 
 async def scoreboard_message_lookup(channel: TextChannel) -> Optional[Message]:
@@ -34,6 +42,7 @@ async def scoreboard_sheet_load(channel: TextChannel) -> Sheet:
     scoreboard = ScoreboardMessage.parse(message)
     document_id = Google.get_sheet_id(scoreboard.url)
     # sheet.fix_flags([TIME_CODES_COLUMN_INDEX])  # not yet needed cus of render option
+    credentials = await google_credentials()
     return Google(credentials).load_sheet(document_id, scoreboard.cells)
 
 
@@ -53,12 +62,19 @@ async def get_voice_desc(ctx: Context) -> Tuple[VoiceChannel, List[Member]]:
 
 @loop(seconds=REFRESH_GOOGLE_API_TOKEN_TIME)
 async def refresh_token():
-    print("I want to refresh token for g00gle api but don't know how")
+    await bot.wait_until_ready()
+    print(f"Refresh google credentials token {datetime.now()}")
+
+    await bot.change_presence(activity=discord.Game(name="Refresh tokens"))
+
+    await google_credentials()  # I hope this will work
+
+    await bot.change_presence(activity=None)
 
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user.name} has connected to Discord!')
+    print(f'{bot.user} has connected to Discord at {datetime.now()}!')
 
 
 @bot.command(
@@ -68,6 +84,10 @@ async def on_ready():
 @commands.has_role("root")
 @handle_errors(bot)
 async def choose_timecoder(ctx: Context, score: int = 2):
+    await bot.change_presence(
+        status=discord.Status.online,
+        activity=discord.Game(name="Выбираю, кто соберет таймкоды"))
+
     voice_channel, members = await get_voice_desc(ctx)
 
     sheet = await scoreboard_sheet_load(ctx.channel)
@@ -85,7 +105,7 @@ async def choose_timecoder(ctx: Context, score: int = 2):
 
     date = strdate(ctx.message.created_at)
 
-    await ctx.reply(f"Исскуственный интелект назначил тебя {member.mention} отвественным за таймкоды {date}, "
+    await ctx.reply(f"Исскуственный интелект назначил тебя {member.mention} отвественным за таймкоды **{date}**, "
                     f"по {voice_channel.mention}. Ты получишь +{score} баллов, если успешно справишься "
                     f"с задачей и -1 в противном случае")
 
@@ -97,6 +117,10 @@ async def choose_timecoder(ctx: Context, score: int = 2):
 @commands.has_role("root")
 @handle_errors(bot)
 async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1):
+    await bot.change_presence(
+        status=discord.Status.online,
+        activity=discord.Game(name="Отмечаю, кто сидит в голосовом канале..."))
+
     voice_channel, members = await get_voice_desc(ctx)
 
     assert score > 0, f"This is unfair to add {score}"
@@ -119,6 +143,7 @@ async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1)
         lines.append(string)
 
     if not DRY_SHEET_RUN:
+        credentials = await google_credentials()
         Google(credentials).store_sheet(sheet)
 
     message = f"Обновленный рейтинг за {date} по данным из {voice_channel.mention}:\n" + "\n".join(lines)
@@ -133,9 +158,9 @@ def discord_get_token(token_path: str) -> str:
 
 
 def main():
-    token = discord_get_token("discord.json")
-    refresh_token.before_loop(bot.wait_until_ready())
     refresh_token.start()
+
+    token = discord_get_token("discord.json")
     bot.run(token)
 
 

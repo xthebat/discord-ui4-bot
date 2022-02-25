@@ -3,6 +3,7 @@ import json
 import random
 from typing import List, Tuple
 
+import discord
 from discord.ext.commands import Context, Bot
 
 ATTACHMENT_SIGNATURE = "<ATTACHMENT>"
@@ -54,6 +55,8 @@ def handle_errors(bot: Bot):
 
                 await ctx.reply(reply)
                 raise
+            finally:
+                await bot.change_presence(status=discord.Status.idle, activity=None)
 
         return wrapped
 
