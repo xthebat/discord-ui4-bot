@@ -1,0 +1,10 @@
+pytz==2020.5
+validators==0.18.2
+discord.py==1.7.3
+google-api-core==2.5.0
+google-api-python-client==2.38.0
+google-auth==1.28.1
+google-auth-httplib2==0.1.0
+google-auth-oauthlib==0.4.4
+google-pasta==0.2.0
+googleapis-common-protos==1.55.0
