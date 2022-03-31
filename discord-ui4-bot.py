@@ -241,7 +241,7 @@ async def background_loop():
     if now >= scheduled:
         scheduled += timedelta(days=1)
         print(f"Executing daily tasks, next scheduled {scheduled}")
-        # await check_rules_violations(None)
+        await check_rules_violations(None)
 
 
 def main():
