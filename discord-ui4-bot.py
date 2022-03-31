@@ -2,24 +2,22 @@ import asyncio
 import random
 import sys
 from dataclasses import dataclass
-from typing import List, Tuple, Optional, Any
-
 from datetime import datetime, timedelta
+from typing import List, Tuple, Optional, Any
 
 import discord
 from discord import Member, Message, VoiceState, VoiceChannel, TextChannel, Guild, Role
 from discord.ext import commands
-from discord.ext.tasks import loop
 from discord.ext.commands import Context
+from discord.ext.tasks import loop
 
 from configs import *
 from dc import DiscordConfig
-from wrapper import playgame
 from functions import find, strdate2excel, strdate, first
-from g0 import Google
+from g0 import Google, Creds
 from scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
 from sheet import Sheet
-
+from wrapper import playgame
 
 # TODO: refactor bot to class-like
 if not os.path.isfile(DISCORD_CONFIG_FILEPATH):
@@ -39,11 +37,6 @@ bot = commands.Bot(
 lock_google = asyncio.Lock()
 
 
-async def google_credentials():
-    async with lock_google:
-        return Google.auth(GOOGLE_CREDENTIALS_FILEPATH, GOOGLE_TOKEN_FILEPATH)
-
-
 async def scoreboard_message_lookup(channel: TextChannel) -> Optional[Message]:
     pins: List[Message] = await channel.pins()
     sorted_pins = sorted(pins, key=lambda it: it.created_at, reverse=True)
@@ -56,8 +49,8 @@ async def scoreboard_sheet_load(channel: TextChannel) -> Tuple[Sheet, Message]:
     scoreboard = ScoreboardMessage.parse(message)
     document_id = Google.get_sheet_id(scoreboard.url)
     # sheet.fix_flags([TIME_CODES_COLUMN_INDEX])  # not yet needed cus of render option
-    credentials = await google_credentials()
-    return Google(credentials).load_sheet(document_id, scoreboard.cells, scoreboard.url), message
+    creds = Creds.service(GOOGLE_CREDENTIALS_FILEPATH)
+    return Google(creds).load_sheet(document_id, scoreboard.cells, scoreboard.url), message
 
 
 async def get_voice_channel(ctx: Context) -> VoiceChannel:
@@ -220,21 +213,13 @@ async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1,
         lines.append(string)
 
     if not DRY_SHEET_RUN:
-        credentials = await google_credentials()
-        Google(credentials).store_sheet(sheet)
+        creds = Creds.service(GOOGLE_CREDENTIALS_FILEPATH)
+        Google(creds).store_sheet(sheet)
 
     message = f"Обновленный рейтинг за {date} по данным из {voice_channel.mention}:\n" + \
               "\n".join(lines) + f"\nScoreboard взял отсюда: {pin.jump_url}"
 
     await ctx.reply(message)
-
-
-@bot.command(name="обнови-токены")
-@commands.has_any_role(*dc_cfg.bot_command_roles_id)
-@playgame(bot, activity=discord.Game("Обновляю токены"))
-async def refresh_token(ctx: Optional[Context]):
-    print(f"Refresh google credentials token")
-    await google_credentials()  # I hope this will work
 
 
 scheduled: Optional[datetime] = None
@@ -256,8 +241,7 @@ async def background_loop():
     if now >= scheduled:
         scheduled += timedelta(days=1)
         print(f"Executing daily tasks, next scheduled {scheduled}")
-        await refresh_token(None)
-        await check_rules_violations(None)
+        # await check_rules_violations(None)
 
 
 def main():

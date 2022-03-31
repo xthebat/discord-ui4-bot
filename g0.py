@@ -1,6 +1,8 @@
+import json
 import os
 
 from google.auth.transport.requests import Request
+from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -21,21 +23,13 @@ def range2int(r: str) -> Tuple[int, int]:
     return from_base26(start), from_base26(end)
 
 
-class Google(object):
-
-    @staticmethod
-    def get_sheet_id(url: str) -> str:
-        assert url.startswith(GOOGLE_DOCUMENT_ID_PREFIX), f"Invalid URL for google sheet: {url}"
-        without_prefix = url.lstrip(GOOGLE_DOCUMENT_ID_PREFIX)
-        document_id, separator, leftovers = without_prefix.rpartition("/")  # should always return 3 items
-        assert separator == "/", f"Invalid URL for google sheet: {url}"
-        return document_id
+class Creds:
 
     @staticmethod
     def auth(
             credentials_path: str,
             token_path: str,
-            scopes: Tuple[str] = (GOOGLE_SPREADSHEET_SCOPE, )
+            scopes: Tuple[str] = (GOOGLE_SPREADSHEET_SCOPE,)
     ) -> Credentials:
         creds = None
         scopes = list(scopes)  # not working with tuple
@@ -55,6 +49,24 @@ class Google(object):
             with open(token_path, 'wt') as token:
                 token.write(creds.to_json())
         return creds
+
+    @staticmethod
+    def service(path: str) -> Credentials:
+        with open(path, "rt") as file:
+            info = json.loads(file.read())
+
+        return service_account.Credentials.from_service_account_info(info)
+
+
+class Google(object):
+
+    @staticmethod
+    def get_sheet_id(url: str) -> str:
+        assert url.startswith(GOOGLE_DOCUMENT_ID_PREFIX), f"Invalid URL for google sheet: {url}"
+        without_prefix = url.lstrip(GOOGLE_DOCUMENT_ID_PREFIX)
+        document_id, separator, leftovers = without_prefix.rpartition("/")  # should always return 3 items
+        assert separator == "/", f"Invalid URL for google sheet: {url}"
+        return document_id
 
     def __init__(self, credentials: Credentials):
         self.service = build('sheets', 'v4', credentials=credentials)

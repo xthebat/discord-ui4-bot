@@ -40,7 +40,7 @@ def _parse_assert(string: str) -> Tuple[str, List[str]]:
         return string, list()
 
 
-def playgame(bot: Bot, activity: discord.Status):
+def playgame(bot: Bot, activity):
 
     def decorator(function):
 
