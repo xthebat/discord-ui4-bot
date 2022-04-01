@@ -16,6 +16,7 @@ BOT_CONFIG_PATH = os.path.join(USER_HOME_DIR, BOT_CONFIG_DIR)
 DISCORD_CONFIG_FILEPATH = os.path.join(BOT_CONFIG_PATH, "discord.json")
 GOOGLE_CREDENTIALS_FILEPATH = os.path.join(BOT_CONFIG_PATH, "credentials.json")
 GOOGLE_TOKEN_FILEPATH = os.path.join(BOT_CONFIG_PATH, "google.json")
+GITHUB_WEBHOOK_FILEPATH = os.path.join(BOT_CONFIG_PATH, "github_webhook.json")
 
 CYRILLIC_ALPHABET = set("аАбБвВгГдДеЕёЁжЖзЗиИйЙкКлЛмМнНоОпПрРсСтТуУфФхХцЦчЧшШщЩъЪыЫьЬэЭюЮяЯ")
 SPACE_SET = set(" ")
@@ -25,3 +26,5 @@ DAILY_TASK_CHECK_PERIOD = 60
 TIMEZONE = "Europe/Moscow"
 
 TZ_INFO = pytz.timezone(TIMEZONE)
+
+OK_RESPONSE = 200

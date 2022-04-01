@@ -25,6 +25,7 @@ class DiscordConfig(object):
     warnings_channel_id: int
     questions_channel_id: int
     rules_channel_id: int
+    github_webhook_channel_id: int
 
     daily_task_time: datetime
 
