@@ -1,4 +1,3 @@
-import json
 import os
 
 from google.auth.transport.requests import Request
@@ -9,8 +8,8 @@ from googleapiclient.discovery import build
 
 from typing import Tuple, Optional
 
-from functions import from_base26
-from sheet import Sheet
+from misc.functions import from_base26, read_json
+from google.sheet import Sheet
 
 GOOGLE_DOCUMENT_ID_PREFIX = "https://docs.google.com/spreadsheets/d/"
 
@@ -52,9 +51,7 @@ class Creds:
 
     @staticmethod
     def service(path: str) -> Credentials:
-        with open(path, "rt") as file:
-            info = json.loads(file.read())
-
+        info = read_json(path)
         return service_account.Credentials.from_service_account_info(info)
 
 

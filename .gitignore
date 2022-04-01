@@ -137,3 +137,5 @@ token.json
 .idea/
 
 google.json
+
+configs/

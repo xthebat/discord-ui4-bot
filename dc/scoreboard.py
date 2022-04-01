@@ -1,11 +1,11 @@
-from wrapper import attachments
+from dc.utils import attachments
 from dataclasses import dataclass
 from typing import Optional
 
 import validators
 from discord import Message
 
-from functions import int_or_else
+from misc.functions import int_or_else
 
 SCOREBOARD_SIGNATURE = "**Сообщение с описанием Scoreboard**"
 SCOREBOARD_ITEM_MARKER = "- "

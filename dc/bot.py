@@ -1,6 +1,5 @@
 import asyncio
 import random
-import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional, Any
@@ -11,19 +10,17 @@ from discord.ext import commands
 from discord.ext.commands import Context
 from discord.ext.tasks import loop
 
-from configs import *
-from dc import DiscordConfig
-from functions import find, strdate2excel, strdate, first
-from g0 import Google, Creds
-from scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
-from sheet import Sheet
-from wrapper import playgame
+from config import DiscordConfig
+from misc.functions import find, strdate2excel, strdate, first
+from google.utils import Google, Creds
+from dc.scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
+from settings import DISCORD_CONFIG_FILEPATH, GOOGLE_CREDENTIALS_FILEPATH, CHECK_ON_EMPTY_VOICE_CHANNEL, \
+    CYRILLIC_ALPHABET, SPACE_SET, DRY_SHEET_RUN, DAILY_TASK_CHECK_PERIOD, TZ_INFO
+from google.sheet import Sheet
+from dc.utils import playgame
 
-# TODO: refactor bot to class-like
-if not os.path.isfile(DISCORD_CONFIG_FILEPATH):
-    sys.exit(f"Discord token file not found: {DISCORD_CONFIG_FILEPATH}")
 
-dc_cfg = DiscordConfig.from_json(DISCORD_CONFIG_FILEPATH)
+dc_cfg = DiscordConfig.load(DISCORD_CONFIG_FILEPATH)
 
 
 intents = discord.Intents.all()
@@ -33,8 +30,6 @@ bot = commands.Bot(
     status=discord.Status.online,
     intents=intents,
     activity=None)
-
-lock_google = asyncio.Lock()
 
 
 async def scoreboard_message_lookup(channel: TextChannel) -> Optional[Message]:
@@ -242,19 +237,3 @@ async def background_loop():
         scheduled += timedelta(days=1)
         print(f"Executing daily tasks, next scheduled {scheduled}")
         await check_rules_violations(None)
-
-
-def main():
-    if not os.path.isdir(BOT_CONFIG_PATH):
-        sys.exit(f"Config bot directory not found: {BOT_CONFIG_PATH}")
-
-    if not os.path.isfile(GOOGLE_CREDENTIALS_FILEPATH):
-        sys.exit(f"Google API credentials file not found: {GOOGLE_CREDENTIALS_FILEPATH}")
-
-    background_loop.start()
-
-    bot.run(dc_cfg.token)
-
-
-if __name__ == "__main__":
-    main()

@@ -4,7 +4,6 @@ import json
 import random
 from typing import List, Tuple, Optional
 
-import discord
 from discord.ext.commands import Context, Bot
 
 ATTACHMENT_SIGNATURE = "<ATTACHMENT>"

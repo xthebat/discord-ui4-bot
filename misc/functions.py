@@ -1,3 +1,4 @@
+import json
 from collections import Iterable, Callable, Generator
 from datetime import datetime
 from typing import Optional, List
@@ -79,3 +80,9 @@ def from_base26(string: str) -> int:
     letters = string.split()
     assert all(it >= start <= end for it in letters), f"Invalid letter in string to converter: {string}"
     return sum((ord(it) - ord(start)) * pow(total, index) for index, it in enumerate(letters))
+
+
+def read_json(filepath: str):
+    with open(filepath, "rt") as file:
+        return json.loads(file.read())
+
