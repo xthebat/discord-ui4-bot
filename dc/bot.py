@@ -250,7 +250,8 @@ async def create_github_webhook(ctx, channel_id: int, webhook_name: str, repo_na
             return
 
     message = f"Вебхук \"{webhook_name}\" добавлен"
-    print(f"Added webhook \"{webhook_name}\"")
+
+    await ctx.reply(message)
 
 
 scheduled: Optional[datetime] = None
