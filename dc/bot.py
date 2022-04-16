@@ -10,17 +10,19 @@ from discord.ext import commands
 from discord.ext.commands import Context
 from discord.ext.tasks import loop
 
-from config import DiscordConfig
+from config import DiscordConfig, GithubConfig
 from misc.functions import find, strdate2excel, strdate, first
 from google.utils import Google, Creds
 from dc.scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
-from settings import DISCORD_CONFIG_FILEPATH, GOOGLE_CREDENTIALS_FILEPATH, CHECK_ON_EMPTY_VOICE_CHANNEL, \
-    CYRILLIC_ALPHABET, SPACE_SET, DRY_SHEET_RUN, DAILY_TASK_CHECK_PERIOD, TZ_INFO
+from settings import DISCORD_CONFIG_FILEPATH, GITHUB_CONFIG_FILEPATH, GOOGLE_CREDENTIALS_FILEPATH, \
+    CHECK_ON_EMPTY_VOICE_CHANNEL, CYRILLIC_ALPHABET, SPACE_SET, DRY_SHEET_RUN, DAILY_TASK_CHECK_PERIOD, TZ_INFO
 from google.sheet import Sheet
 from dc.utils import playgame
+from github.utils import GithubWebhook
 
 
 dc_cfg = DiscordConfig.load(DISCORD_CONFIG_FILEPATH)
+github_cfg = GithubConfig.load(GITHUB_CONFIG_FILEPATH)
 
 
 intents = discord.Intents.all()
@@ -215,6 +217,40 @@ async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1,
               "\n".join(lines) + f"\nScoreboard взял отсюда: {pin.jump_url}"
 
     await ctx.reply(message)
+
+
+@bot.command(
+    name="добавь-вебхук",
+    help="Добавляет вебхук репозитория из гитхаба"
+)
+@commands.has_any_role(*dc_cfg.bot_command_roles_id)
+@playgame(bot, discord.Game(name="Добавляю вебхук..."))
+async def create_github_webhook(ctx, channel_id: int, webhook_name: str, repo_name: str):
+    threads = [it.threads for it in ctx.guild.text_channels]
+    threads_id = [thread.id for lst in threads for thread in lst]
+    channels_id = [x.id for x in ctx.guild.text_channels]
+
+    if channel_id in channels_id:
+        is_thread = False
+    elif channel_id in threads_id:
+        for it in ctx.guild.text_channels:
+            if channel_id in [jt.id for jt in it.threads]:
+                parent_channel_id = it.id
+        is_thread = True
+    else:
+        print(f"Channel '{channel_id}' not in text channels or threads")
+        return
+
+    gw = GithubWebhook.from_data(dc_cfg, github_cfg)
+    if is_thread:
+        if not gw.create(webhook_name, parent_channel_id, repo_name, channel_id):
+            return
+    else:
+        if not gw.create(webhook_name, channel_id, repo_name):
+            return
+
+    message = f"Вебхук \"{webhook_name}\" добавлен"
+    print(f"Added webhook \"{webhook_name}\"")
 
 
 scheduled: Optional[datetime] = None

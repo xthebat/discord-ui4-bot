@@ -40,3 +40,11 @@ class DiscordConfig(ConfigBase):
     daily_task_time: datetime = field(metadata=dict(
         dataclasses_json=dict(decoder=lambda it: datetime.strptime(it, "%H:%M:%S"))
     ))
+
+
+@dataclass
+class GithubConfig(ConfigBase):
+    token: str
+    nickname: str
+
+    webhook_events: list

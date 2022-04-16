@@ -9,3 +9,5 @@ google-auth-oauthlib==0.5.1
 google-pasta==0.2.0
 googleapis-common-protos==1.56.0
 dataclasses-json==0.5.7
+discord2==2.0.1
+requests==2.27.1
