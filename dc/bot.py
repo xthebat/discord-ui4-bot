@@ -185,7 +185,7 @@ async def choose_timecoder(ctx: Context, score: int = 2, channel_id: Optional[in
                     f"с задачей и {PENALTY_POINTS} в противном случае. "
                     f"Я выбирал между {', '.join(it.mention for it in present_timecoders)} отсюда {pin.jump_url}.\n"
                     f"Пример сообщения с таймкодами:\n```\n00:00 - Timecode#1\n05:00 - Timecode#2\n...\n```\n"
-                    f"Событие завершится <t:{timestamp}:R>")
+                    f"Событие завершится <t:{timestamp}:F>")
 
 
 @bot.command(
