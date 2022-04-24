@@ -37,6 +37,8 @@ class DiscordConfig(ConfigBase):
     questions_channel_id: int
     rules_channel_id: int
 
+    tracked_threads_id: List[int]
+
     timecodes_countdown_hours: int
 
     daily_task_time: datetime = field(metadata=dict(

@@ -13,6 +13,10 @@ from discord.ext.commands import Context, Bot
 ATTACHMENT_SIGNATURE = "<ATTACHMENT>"
 TIMECODE_PATTERN = r"\d+.\d+(.\d+)?"
 
+THREAD_PHRASES = [
+    ""
+]
+
 ERROR_PHRASES = [
     "Что-то пошло не так, разбирайся...",
     "Давай так больше не будем делать?",
