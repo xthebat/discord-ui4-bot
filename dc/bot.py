@@ -1,5 +1,6 @@
 import asyncio
 import random
+import pytz
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional, Any
@@ -10,18 +11,19 @@ from discord.ext import commands
 from discord.ext.commands import Context
 from discord.ext.tasks import loop
 
-from config import DiscordConfig
+from config import DiscordConfig, GithubConfig
 from misc.functions import find, strdate2excel, strdate, first
 from google.utils import Google, Creds
 from dc.scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
-from settings import DISCORD_CONFIG_FILEPATH, GOOGLE_CREDENTIALS_FILEPATH, CHECK_ON_EMPTY_VOICE_CHANNEL, \
-    CYRILLIC_ALPHABET, SPACE_SET, DRY_SHEET_RUN, DAILY_TASK_CHECK_PERIOD, TZ_INFO
+from settings import DISCORD_CONFIG_FILEPATH, GITHUB_CONFIG_FILEPATH, GOOGLE_CREDENTIALS_FILEPATH, \
+    CHECK_ON_EMPTY_VOICE_CHANNEL, CYRILLIC_ALPHABET, SPACE_SET, DRY_SHEET_RUN, DAILY_TASK_CHECK_PERIOD, \
+    TZ_INFO, PENALTY_POINTS
 from google.sheet import Sheet
-from dc.utils import playgame
-
+from dc.utils import playgame, Timecoder, check_timecodes, THREAD_PHRASES
+from github.utils import GithubWebhook
 
 dc_cfg = DiscordConfig.load(DISCORD_CONFIG_FILEPATH)
-
+github_cfg = GithubConfig.load(GITHUB_CONFIG_FILEPATH)
 
 intents = discord.Intents.all()
 
@@ -171,10 +173,18 @@ async def choose_timecoder(ctx: Context, score: int = 2, channel_id: Optional[in
 
     date = strdate(ctx.message.created_at)
 
-    await ctx.reply(f"Исскуственный интелект назначил {timecoder.mention} отвественным за таймкоды **{date}**, "
+    timecoders.append(Timecoder(timecoder, ctx.message.created_at, text_channel, score))
+
+    t = ctx.message.created_at
+    timestamp = int((datetime(t.year, t.month, t.day, t.hour, t.minute) +
+                     timedelta(hours=dc_cfg.timecodes_countdown_hours) - datetime(1970, 1, 1)).total_seconds())
+
+    await ctx.reply(f"Исскуственный интелект назначил {timecoder.mention} ответственным за таймкоды **{date}**, "
                     f"по {voice_channel.mention}. Ты получишь +{score} баллов, если успешно справишься "
-                    f"с задачей и -1 в противном случае. "
-                    f"Я выбирал между {', '.join(it.mention for it in present_timecoders)} отсюда {pin.jump_url}")
+                    f"с задачей и {PENALTY_POINTS} в противном случае. "
+                    f"Я выбирал между {', '.join(it.mention for it in present_timecoders)} отсюда {pin.jump_url}.\n"
+                    f"Пример сообщения с таймкодами:\n```\n00:00 - Timecode#1\n05:00 - Timecode#2\n...\n```\n"
+                    f"Событие завершится <t:{timestamp}:F>")
 
 
 @bot.command(
@@ -217,7 +227,43 @@ async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1,
     await ctx.reply(message)
 
 
+@bot.command(
+    name="добавь-вебхук",
+    help="Добавляет вебхук репозитория из гитхаба"
+)
+@commands.has_any_role(*dc_cfg.bot_command_roles_id)
+@playgame(bot, discord.Game(name="Добавляю вебхук..."))
+async def create_github_webhook(ctx: Context, channel_id: int, webhook_name: str, repo_name: str):
+    threads = [it.threads for it in ctx.guild.text_channels]
+    threads_id = [thread.id for lst in threads for thread in lst]
+    channels_id = [x.id for x in ctx.guild.text_channels]
+
+    if channel_id in channels_id:
+        is_thread = False
+    elif channel_id in threads_id:
+        for it in ctx.guild.text_channels:
+            if channel_id in [jt.id for jt in it.threads]:
+                parent_channel_id = it.id
+        is_thread = True
+    else:
+        print(f"Channel '{channel_id}' not in text channels or threads")
+        return
+
+    gw = GithubWebhook.from_data(dc_cfg, github_cfg)
+    if is_thread:
+        if not gw.create(webhook_name, parent_channel_id, repo_name, channel_id):
+            return
+    else:
+        if not gw.create(webhook_name, channel_id, repo_name):
+            return
+
+    message = f"Вебхук \"{webhook_name}\" добавлен"
+
+    await ctx.reply(message)
+
+
 scheduled: Optional[datetime] = None
+timecoders: List[Timecoder] = list()
 
 
 @loop(seconds=DAILY_TASK_CHECK_PERIOD)
@@ -227,11 +273,44 @@ async def background_loop():
     await bot.wait_until_ready()
 
     scheduled = scheduled or datetime.now(TZ_INFO).replace(
-            hour=dc_cfg.daily_task_time.hour,
-            minute=dc_cfg.daily_task_time.minute,
-            second=dc_cfg.daily_task_time.second)
+        hour=dc_cfg.daily_task_time.hour,
+        minute=dc_cfg.daily_task_time.minute,
+        second=dc_cfg.daily_task_time.second)
 
     now = datetime.now(TZ_INFO)
+    guild = bot.get_guild(dc_cfg.server_id)
+
+    for timecoder in timecoders:
+        messages = [message async for message in timecoder.channel.history(limit=20)
+                    if message.author == timecoder.member and message.created_at > timecoder.choice_time]
+        message = None
+        for m in messages:
+            if check_timecodes(m.content):
+                message = m
+
+        is_late = timecoder.choice_time + timedelta(hours=dc_cfg.timecodes_countdown_hours) <= now
+        if message or is_late:
+            timecoders.remove(timecoder)
+            sheet, pin = await scoreboard_sheet_load(timecoder.channel)
+            date = strdate(timecoder.choice_time)
+            excel_date = strdate2excel(date)
+            sheet.add_score(timecoder.member.display_name, excel_date, PENALTY_POINTS if is_late else timecoder.score)
+        if message:
+            await message.reply(f"Добавил {timecoder.score} балла")
+        elif is_late:
+            await timecoder.channel.send(f"{timecoder.member.mention} К сожалению, таймкодов не найдено :(")
+
+    if guild:
+        threads = [thread for lst in guild.text_channels for thread in lst.threads]
+        for thread in threads:
+            if thread.id in dc_cfg.tracked_threads_id and not thread.archived:
+                async for msg in thread.history(limit=1):
+                    last_msg = msg
+
+                archive_half_time = last_msg.created_at.replace(tzinfo=pytz.utc).astimezone(TZ_INFO) + \
+                                    timedelta(minutes=thread.auto_archive_duration / 2)
+                if now >= archive_half_time:
+                    await thread.send(random.choice(THREAD_PHRASES))
 
     if now >= scheduled:
         scheduled += timedelta(days=1)
