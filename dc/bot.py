@@ -15,9 +15,10 @@ from misc.functions import find, strdate2excel, strdate, first
 from google.utils import Google, Creds
 from dc.scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
 from settings import DISCORD_CONFIG_FILEPATH, GITHUB_CONFIG_FILEPATH, GOOGLE_CREDENTIALS_FILEPATH, \
-    CHECK_ON_EMPTY_VOICE_CHANNEL, CYRILLIC_ALPHABET, SPACE_SET, DRY_SHEET_RUN, DAILY_TASK_CHECK_PERIOD, TZ_INFO
+    CHECK_ON_EMPTY_VOICE_CHANNEL, CYRILLIC_ALPHABET, SPACE_SET, DRY_SHEET_RUN, DAILY_TASK_CHECK_PERIOD, \
+    TZ_INFO, PENALTY_POINTS
 from google.sheet import Sheet
-from dc.utils import playgame
+from dc.utils import playgame, Timecoder, check_timecodes
 from github.utils import GithubWebhook
 
 
@@ -173,10 +174,18 @@ async def choose_timecoder(ctx: Context, score: int = 2, channel_id: Optional[in
 
     date = strdate(ctx.message.created_at)
 
-    await ctx.reply(f"Исскуственный интелект назначил {timecoder.mention} отвественным за таймкоды **{date}**, "
+    timecoders.append(Timecoder(timecoder, ctx.message.created_at, text_channel, score))
+
+    t = ctx.message.created_at
+    timestamp = int((datetime(t.year, t.month, t.day, t.hour, t.minute) +
+                     timedelta(hours=dc_cfg.timecodes_countdown_hours) - datetime(1970, 1, 1)).total_seconds())
+
+    await ctx.reply(f"Исскуственный интелект назначил {timecoder.mention} ответственным за таймкоды **{date}**, "
                     f"по {voice_channel.mention}. Ты получишь +{score} баллов, если успешно справишься "
-                    f"с задачей и -1 в противном случае. "
-                    f"Я выбирал между {', '.join(it.mention for it in present_timecoders)} отсюда {pin.jump_url}")
+                    f"с задачей и {PENALTY_POINTS} в противном случае. "
+                    f"Я выбирал между {', '.join(it.mention for it in present_timecoders)} отсюда {pin.jump_url}.\n"
+                    f"Пример сообщения с таймкодами:\n```\n00:00 - Timecode#1\n05:00 - Timecode#2\n...\n```\n"
+                    f"Событие завершится <t:{timestamp}:R>")
 
 
 @bot.command(
@@ -255,6 +264,7 @@ async def create_github_webhook(ctx, channel_id: int, webhook_name: str, repo_na
 
 
 scheduled: Optional[datetime] = None
+timecoders: List[Timecoder] = list()
 
 
 @loop(seconds=DAILY_TASK_CHECK_PERIOD)
@@ -269,6 +279,26 @@ async def background_loop():
             second=dc_cfg.daily_task_time.second)
 
     now = datetime.now(TZ_INFO)
+
+    for timecoder in timecoders:
+        messages = [message async for message in timecoder.channel.history(limit=20)
+                    if message.author == timecoder.member and message.created_at > timecoder.choice_time]
+        message = None
+        for m in messages:
+            if check_timecodes(m.content):
+                message = m
+
+        is_late = timecoder.choice_time + timedelta(hours=dc_cfg.timecodes_countdown_hours) <= now
+        if message or is_late:
+            timecoders.remove(timecoder)
+            sheet, pin = await scoreboard_sheet_load(timecoder.channel)
+            date = strdate(timecoder.choice_time)
+            excel_date = strdate2excel(date)
+            sheet.add_score(timecoder.member.display_name, excel_date, PENALTY_POINTS if is_late else timecoder.score)
+        if message:
+            await message.reply(f"Добавил {timecoder.score} балла")
+        elif is_late:
+            await timecoder.channel.send(f"{timecoder.member.mention} К сожалению, таймкодов не найдено :(")
 
     if now >= scheduled:
         scheduled += timedelta(days=1)

@@ -2,11 +2,16 @@ import asyncio
 import functools
 import json
 import random
+import re
+from dataclasses import dataclass
+from datetime import datetime
 from typing import List, Tuple, Optional
 
+from discord import Member, TextChannel
 from discord.ext.commands import Context, Bot
 
 ATTACHMENT_SIGNATURE = "<ATTACHMENT>"
+TIMECODE_PATTERN = r"\d+.\d+(.\d+)?"
 
 ERROR_PHRASES = [
     "Что-то пошло не так, разбирайся...",
@@ -20,7 +25,6 @@ ERROR_PHRASES = [
     "С вашим кодом явно что-то не так",
     "Почему код писал кто-то другой, а не работаю теперь я?"
 ]
-
 
 working_lock = asyncio.Lock()
 
@@ -40,7 +44,6 @@ def _parse_assert(string: str) -> Tuple[str, List[str]]:
 
 
 def playgame(bot: Bot, activity):
-
     def decorator(function):
 
         @functools.wraps(function)
@@ -74,3 +77,22 @@ def playgame(bot: Bot, activity):
         return wrapped
 
     return decorator
+
+
+@dataclass
+class Timecoder:
+    member: Member
+    choice_time: datetime
+    channel: TextChannel
+    score: int
+
+
+def check_timecodes(message: str) -> bool:
+    if not len(message):
+        return False
+
+    valid_count: int = 0
+    for line in message.splitlines():
+        lst = line.split()
+        valid_count += (len(lst) >= 2 and re.fullmatch(TIMECODE_PATTERN, lst[0]) is not None)
+    return valid_count >= 10

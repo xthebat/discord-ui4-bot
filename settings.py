@@ -17,6 +17,8 @@ SPACE_SET = set(" ")
 
 DAILY_TASK_CHECK_PERIOD = 60
 
+PENALTY_POINTS = -1
+
 TIMEZONE = "Europe/Moscow"
 
 TZ_INFO = pytz.timezone(TIMEZONE)

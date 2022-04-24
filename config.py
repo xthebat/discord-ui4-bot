@@ -37,6 +37,8 @@ class DiscordConfig(ConfigBase):
     questions_channel_id: int
     rules_channel_id: int
 
+    timecodes_countdown_hours: int
+
     daily_task_time: datetime = field(metadata=dict(
         dataclasses_json=dict(decoder=lambda it: datetime.strptime(it, "%H:%M:%S"))
     ))
