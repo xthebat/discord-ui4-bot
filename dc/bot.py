@@ -197,12 +197,10 @@ async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1,
     lines = []
     for member in members:
         new_score = sheet.add_score(member.display_name, excel_date, score)
-        if new_score is not None:
-            string = f"- Новый score пользователя {member.mention}: {new_score}"
-        else:
+        if new_score is None:
             print(f"User not found: {member.display_name}")
             string = f"- Пользователь {member.mention} не был найден в Scoreboard :("
-        lines.append(string)
+            lines.append(string)
 
     if not DRY_SHEET_RUN:
         creds = Creds.service(GOOGLE_CREDENTIALS_FILEPATH)
