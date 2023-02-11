@@ -1,4 +1,3 @@
-import asyncio
 import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -11,17 +10,15 @@ from discord.ext.commands import Context
 from discord.ext.tasks import loop
 
 from config import DiscordConfig
-from misc.functions import find, strdate2excel, strdate, first
-from google.utils import Google, Creds
 from dc.scoreboard import ScoreboardMessage, SCOREBOARD_SIGNATURE
+from dc.utils import playgame
+from google.sheet import Sheet
+from google.utils import Google, Creds
+from misc.functions import find, strdate2excel, strdate, first
 from settings import DISCORD_CONFIG_FILEPATH, GOOGLE_CREDENTIALS_FILEPATH, CHECK_ON_EMPTY_VOICE_CHANNEL, \
     CYRILLIC_ALPHABET, SPACE_SET, DRY_SHEET_RUN, DAILY_TASK_CHECK_PERIOD, TZ_INFO
-from google.sheet import Sheet
-from dc.utils import playgame
-
 
 dc_cfg = DiscordConfig.load(DISCORD_CONFIG_FILEPATH)
-
 
 intents = discord.Intents.all()
 
@@ -227,9 +224,9 @@ async def background_loop():
     await bot.wait_until_ready()
 
     scheduled = scheduled or datetime.now(TZ_INFO).replace(
-            hour=dc_cfg.daily_task_time.hour,
-            minute=dc_cfg.daily_task_time.minute,
-            second=dc_cfg.daily_task_time.second)
+        hour=dc_cfg.daily_task_time.hour,
+        minute=dc_cfg.daily_task_time.minute,
+        second=dc_cfg.daily_task_time.second)
 
     now = datetime.now(TZ_INFO)
 
