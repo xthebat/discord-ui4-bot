@@ -116,7 +116,7 @@ async def check_rules_violations(ctx: Optional[Context]):
         if violations:
             root: Role = guild.get_role(dc_cfg.root_role_id)
 
-            print(f"User '{member.display_name}' violated server rules")
+            print(f"User '{member.display_name}/{member}' violated server rules")
 
             embed = discord.Embed(
                 title=f"Нарушение правил сервера",
