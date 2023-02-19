@@ -11,7 +11,6 @@ YOUTUBE_NAME_COLUMN_INDEX = 3
 TIME_CODES_COLUMN_INDEX = 4
 TOTAL_SCORES_COLUMN_INDEX = 5
 
-
 EMPTY_CELL = ""
 
 
@@ -32,8 +31,21 @@ class Sheet(object):
         self.values: List[List] = data["values"]
 
         self.headers = self.values[HEADER_ROW_INDEX]
-        self.rows = [it for it in self.values[HEADER_ROW_INDEX + 1:]
-                     if not is_cell_empty(it[ORDER_NUMBER_COLUMN_INDEX])]
+
+        self.rows = []
+
+        orders = set()
+        for it in self.values[HEADER_ROW_INDEX + 1:]:
+            if not it:
+                continue
+
+            order = it[ORDER_NUMBER_COLUMN_INDEX]
+            if is_cell_empty(order):
+                continue
+
+            assert order not in orders, f"Repeating orders found: {order=}"
+            self.rows.append(it)
+            orders.add(order)
 
     def fix_flags(self, columns: List[int]):
         """

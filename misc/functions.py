@@ -85,4 +85,3 @@ def from_base26(string: str) -> int:
 def read_json(filepath: str):
     with open(filepath, "rt") as file:
         return json.loads(file.read())
-
