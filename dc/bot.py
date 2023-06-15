@@ -125,7 +125,7 @@ async def check_rules_violations(ctx: Optional[Context]):
                 color=0xff0000
             )
 
-            embed.set_author(name="Исскуственный интелект")
+            embed.set_author(name="Искусственный интеллект")
 
             for index, violation in enumerate(violations):
                 embed.add_field(name=f"{index + 1}. {violation.name}", value=violation.value)
@@ -168,7 +168,7 @@ async def choose_timecoder(ctx: Context, score: int = 2, channel_id: Optional[in
 
     date = strdate(ctx.message.created_at)
 
-    await ctx.reply(f"Исскуственный интелект назначил {timecoder.mention} отвественным за таймкоды **{date}**, "
+    await ctx.reply(f"Искусственный интеллект назначил {timecoder.mention} ответственным за таймкоды **{date}**, "
                     f"по {voice_channel.mention}. Ты получишь +{score} баллов, если успешно справишься "
                     f"с задачей и -1 в противном случае. "
                     f"Я выбирал между {', '.join(it.mention for it in present_timecoders)} отсюда {pin.jump_url}")
@@ -208,6 +208,23 @@ async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1,
 
     message = f"Обновленный рейтинг за {date} по данным из {voice_channel.mention}:\n" + \
               "\n".join(lines) + f"\nScoreboard взял отсюда: {pin.jump_url}"
+
+    await ctx.reply(message)
+
+
+@bot.command(
+    name="скажи-имя",
+    help="Показывает имя заданного пользователя по идентификатору"
+)
+@commands.has_any_role(*dc_cfg.bot_command_roles_id)
+@playgame(bot, discord.Game(name="Ищу пользователя"))
+async def show_display_name(ctx: Context, identifier: int):
+    guild: Guild = bot.get_guild(dc_cfg.server_id)
+    member = guild.get_member(identifier)
+    if member is None:
+        message = f"Не нашел пользователя с идентификатором {identifier} на сервере"
+    else:
+        message = f"Отображаемое имя пользователя `{member.display_name}`"
 
     await ctx.reply(message)
 
