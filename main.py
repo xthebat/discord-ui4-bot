@@ -1,10 +1,4 @@
-from dc.bot import background_loop, bot, dc_cfg
-
-
-def main():
-    background_loop.start()
-    bot.run(dc_cfg.token)
-
+from dc.bot import bot, dc_cfg
 
 if __name__ == "__main__":
-    main()
+    bot.run(dc_cfg.token)
