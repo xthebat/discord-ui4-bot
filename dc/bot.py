@@ -106,7 +106,7 @@ async def check_rules_violations(ctx: Optional[Context]):
             violations.append(entry)
 
         if dont_check_name not in member.roles:
-            invalid_letters = set(member.global_name) - CYRILLIC_ALPHABET - SPACE_SET
+            invalid_letters = set(member.display_name) - CYRILLIC_ALPHABET - SPACE_SET
             if invalid_letters:
                 entry = Entry(
                     "Нарушение имени пользователя",
@@ -116,7 +116,7 @@ async def check_rules_violations(ctx: Optional[Context]):
         if violations:
             root: Role = guild.get_role(dc_cfg.root_role_id)
 
-            print(f"User '{member.global_name}/{member}' violated server rules")
+            print(f"User '{member.display_name}/{member}' violated server rules")
 
             embed = discord.Embed(
                 title=f"Нарушение правил сервера",
@@ -156,13 +156,13 @@ async def choose_timecoder(ctx: Context, score: int = 2, channel_id: Optional[in
     acquired_timecoders = sheet.get_timecoders()
     assert acquired_timecoders, f"Nobody want to be timecoder"
 
-    present_users = [it.global_name for it in members]
+    present_users = [it.display_name for it in members]
 
     present_timecoders_names = list(set(acquired_timecoders) & set(present_users))
     assert present_timecoders_names, f"All possible timecoders are absent :("
 
     present_timecoders: List[Member] = \
-        [first(lambda it: it.global_name == name, members) for name in present_timecoders_names]
+        [first(lambda it: it.display_name == name, members) for name in present_timecoders_names]
 
     timecoder = random.choice(present_timecoders)
 
@@ -196,9 +196,9 @@ async def update_score(ctx: Context, date: Optional[str] = None, score: int = 1,
 
     lines = []
     for member in members:
-        new_score = sheet.add_score(member.global_name, excel_date, score)
+        new_score = sheet.add_score(member.display_name, excel_date, score)
         if new_score is None:
-            print(f"User not found: {member.global_name}")
+            print(f"User not found: {member.display_name}")
             string = f"- Пользователь {member.mention} не был найден в Scoreboard :("
             lines.append(string)
 
